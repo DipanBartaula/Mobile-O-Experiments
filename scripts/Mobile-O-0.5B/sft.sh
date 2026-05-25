@@ -5,9 +5,9 @@ sock=s.socket(); sock.bind(('',0))
 print(sock.getsockname()[1]); sock.close()
 PY
 )
-CUDA_VISIBLE_DEVICES=0 CUDA_LAUNCH_BLOCKING=1 \
+CUDA_VISIBLE_DEVICES=0,1,2,3 CUDA_LAUNCH_BLOCKING=1 \
 MASTER_ADDR=127.0.0.1 MASTER_PORT=$PORT \
-torchrun --nnodes=1 --nproc_per_node=1 --master_port $PORT \
+torchrun --nnodes=1 --nproc_per_node=4 --master_port $PORT \
     mobileo/train/train.py \
     --deepspeed ./deepspeed_scripts/zero1.json \
     --diffusion_name_or_path Efficient-Large-Model/Sana_600M_512px_diffusers \
@@ -27,12 +27,12 @@ torchrun --nnodes=1 --nproc_per_node=1 --master_port $PORT \
     --output_dir checkpoints/$RUN_NAME \
     --aspect_ratio_size 512 512 \
     --num_train_epochs 20 \
-    --per_device_train_batch_size 24 \
+    --per_device_train_batch_size 64 \
     --per_device_eval_batch_size 4 \
     --gradient_accumulation_steps 2 \
     --eval_strategy no \
     --save_strategy steps \
-    --save_steps 5000 \
+    --save_steps 1000 \
     --save_total_limit 3 \
     --learning_rate 2e-4 \
     --weight_decay 0.01 \
@@ -46,4 +46,5 @@ torchrun --nnodes=1 --nproc_per_node=1 --master_port $PORT \
     --dataloader_num_workers 8 \
     --lazy_preprocess True \
     --report_to wandb \
+    --seed 42 \
     --run_name $RUN_NAME 2>&1 | tee logs/$RUN_NAME.txt

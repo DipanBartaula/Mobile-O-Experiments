@@ -20,8 +20,11 @@ import torchvision.transforms as T
 from torchvision.transforms.functional import InterpolationMode
 from transformers import AutoProcessor, TrainerCallback
 import random
+import numpy as np
 from typing import List
 import warnings
+from diffusers.utils.torch_utils import randn_tensor
+from diffusers.pipelines.pipeline_utils import numpy_to_pil
 
 warnings.filterwarnings("ignore", message="Plan failed with a CuDNNError")
 warnings.filterwarnings("ignore", message=".*copying from a non-meta parameter.*")
@@ -133,6 +136,113 @@ class MobileConditioningCallback_(TrainerCallback):
                         print(f"  Layer {21+i}: {w:.4f} {bar}")
                 print(f"{'─'*70}\n")
 
+
+class WandbImageLoggerCallback(TrainerCallback):
+    """Logs a generated image to W&B every N optimizer steps."""
+
+    def __init__(self, tokenizer, every_n_steps=250, prompt="a cinematic mountain lake at sunrise", num_inference_steps=20, guidance_scale=1.5):
+        self.tokenizer = tokenizer
+        self.every_n_steps = every_n_steps
+        self.prompt = prompt
+        self.num_inference_steps = num_inference_steps
+        self.guidance_scale = guidance_scale
+
+    def _sample_images(self, model, pred_latents, with_cfg=True):
+        device = pred_latents[0].device
+        batch_size = pred_latents[0].shape[0]
+
+        if with_cfg:
+            pred_latents = tuple(torch.cat([torch.zeros_like(layer), layer], dim=0) for layer in pred_latents)
+
+        encoder_hidden_states = model.get_model().diffusion_connector(pred_latents).float()
+        latent_size = model.get_model().dit.config.sample_size
+        latent_channels = model.get_model().dit.config.in_channels
+
+        latents = randn_tensor(
+            shape=(batch_size, latent_channels, latent_size, latent_size),
+            generator=None,
+            device=device,
+            dtype=torch.float32,
+        )
+
+        model.get_model().noise_scheduler.set_timesteps(self.num_inference_steps)
+        for t in model.get_model().noise_scheduler.timesteps:
+            if with_cfg:
+                latent_model_input = torch.cat([latents] * 2)
+            else:
+                latent_model_input = latents
+
+            if hasattr(model.get_model().noise_scheduler, "scale_model_input"):
+                latent_model_input = model.get_model().noise_scheduler.scale_model_input(latent_model_input, t)
+
+            noise_pred = model.get_model().dit(
+                hidden_states=latent_model_input.to(torch.bfloat16),
+                encoder_hidden_states=encoder_hidden_states.to(torch.bfloat16),
+                timestep=t.unsqueeze(0).expand(latent_model_input.shape[0]).to(device),
+                encoder_attention_mask=None,
+            ).sample.float()
+
+            if with_cfg:
+                noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+                noise_pred = noise_pred_uncond + self.guidance_scale * (noise_pred_text - noise_pred_uncond)
+
+            latents = model.get_model().noise_scheduler.step(noise_pred, t, latents).prev_sample
+
+        latents = latents.to(model.get_model().vae.dtype) / model.get_model().vae.config.scaling_factor
+        if "shift_factor" in model.get_model().vae.config and model.get_model().vae.config.shift_factor is not None:
+            latents = latents + model.get_model().vae.config.shift_factor
+        samples = model.get_model().vae.decode(latents).sample
+        samples = (samples / 2 + 0.5).clamp(0, 1)
+        samples = samples.cpu().permute(0, 2, 3, 1).float().numpy()
+        return numpy_to_pil(samples)
+
+    def _build_prompt_ids(self, device):
+        prompt = f"Please generate image based on the following caption: {self.prompt}"
+        ids = self.tokenizer.encode(prompt, add_special_tokens=True)
+        input_ids = torch.tensor([ids], dtype=torch.long, device=device)
+        attention_mask = torch.ones_like(input_ids, dtype=torch.long)
+        return input_ids, attention_mask
+
+    def on_step_end(self, args, state, control, model=None, **kwargs):
+        if not state.is_world_process_zero:
+            return
+        if state.global_step == 0 or state.global_step % self.every_n_steps != 0:
+            return
+        if model is None:
+            return
+
+        try:
+            import wandb
+        except Exception:
+            return
+        if wandb.run is None:
+            return
+
+        actual_model = model.module if hasattr(model, "module") else model
+        was_training = actual_model.training
+        try:
+            actual_model.eval()
+            with torch.no_grad():
+                device = next(actual_model.parameters()).device
+                input_ids, attention_mask = self._build_prompt_ids(device)
+                outputs = actual_model.model(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    output_hidden_states=True,
+                    return_dict=True,
+                )
+                images = self._sample_images(actual_model, outputs.hidden_states, with_cfg=True)
+                if images:
+                    wandb.log(
+                        {"train/sample_image": wandb.Image(images[0], caption=f"step={state.global_step} prompt={self.prompt}")},
+                        step=state.global_step,
+                    )
+        except Exception as e:
+            print(f"[WandbImageLoggerCallback] failed at step {state.global_step}: {e}")
+        finally:
+            if was_training:
+                actual_model.train()
+
 def rank0_print(*args):
     if local_rank == 0:
         print(*args)
@@ -206,6 +316,19 @@ class TrainingArguments(transformers.TrainingArguments):
     ddp_find_unused_parameters: bool = True
     min_lr: float = field(default=1e-6, metadata={"help": "Minimum learning rate for cosine scheduler."})
     lr_scheduler_kwargs: dict = field(default_factory=lambda: {'min_lr':1e-6})
+
+
+def set_global_determinism(seed: int):
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    transformers.set_seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 
 def maybe_zero_3(param, ignore_status=False, name=None):
@@ -736,6 +859,7 @@ def train(attn_implementation=None):
 
     parser = transformers.HfArgumentParser((ModelArguments, DataArguments, TrainingArguments))
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    set_global_determinism(training_args.seed)
     training_args.lr_scheduler_kwargs['min_lr'] = training_args.min_lr
     
     print(model_args, data_args, training_args)
@@ -865,7 +989,10 @@ def train(attn_implementation=None):
         model=model,
         tokenizer=tokenizer,
         args=training_args,
-		callbacks=[MobileConditioningCallback(total_epochs=int(training_args.num_train_epochs))],
+		callbacks=[
+            MobileConditioningCallback(total_epochs=int(training_args.num_train_epochs)),
+            WandbImageLoggerCallback(tokenizer=tokenizer, every_n_steps=250),
+        ],
         **data_module,
     )
     from tabulate import tabulate
