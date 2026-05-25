@@ -9,9 +9,14 @@ from transformers.trainer import (
     is_sagemaker_mp_enabled,
     get_parameter_names,
     has_length,
-    ALL_LAYERNORM_LAYERS,
     logger,
 )
+try:
+    # Newer transformers versions expose this in pytorch_utils.
+    from transformers.pytorch_utils import ALL_LAYERNORM_LAYERS
+except ImportError:
+    # Older versions kept it in transformers.trainer.
+    from transformers.trainer import ALL_LAYERNORM_LAYERS
 from typing import List, Optional
 from transformers.utils import is_torch_xla_available
 
