@@ -36,6 +36,34 @@ tf_logging.set_verbosity_info()
 
 local_rank = None
 
+
+def patch_accelerate_deepspeed_import():
+    """Avoid hard crash when accelerate imports deepspeed on non-DeepSpeed runs."""
+    try:
+        import accelerate.utils.other as accel_other
+        import accelerate.accelerator as accel_accelerator
+    except Exception:
+        return
+
+    original_extract = accel_other.extract_model_from_parallel
+
+    def safe_extract_model_from_parallel(model, keep_fp32_wrapper=True, keep_torch_compile=True):
+        try:
+            return original_extract(model, keep_fp32_wrapper, keep_torch_compile)
+        except Exception as exc:
+            if "CUDA_HOME does not exist" not in str(exc):
+                raise
+            parallel_wrappers = (
+                torch.nn.parallel.DistributedDataParallel,
+                torch.nn.DataParallel,
+            )
+            while isinstance(model, parallel_wrappers):
+                model = model.module
+            return getattr(model, "_orig_mod", model)
+
+    accel_other.extract_model_from_parallel = safe_extract_model_from_parallel
+    accel_accelerator.extract_model_from_parallel = safe_extract_model_from_parallel
+
 class MobileConditioningCallback(TrainerCallback):
     def __init__(self, total_epochs):
         self.total_epochs = total_epochs
@@ -903,6 +931,7 @@ def make_supervised_data_module(tokenizer: transformers.PreTrainedTokenizer, dat
 
 def train(attn_implementation=None):
     global local_rank
+    patch_accelerate_deepspeed_import()
 
     parser = transformers.HfArgumentParser((ModelArguments, DataArguments, TrainingArguments))
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
