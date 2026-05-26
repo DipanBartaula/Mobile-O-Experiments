@@ -28,6 +28,9 @@ mkdir -p "$RUN_ROOT/logs" "$RUN_ROOT/checkpoints"
 
 export OMP_NUM_THREADS=8
 export TOKENIZERS_PARALLELISM=false
+export TORCH_DISTRIBUTED_DEBUG=DETAIL
+export TORCH_SHOW_CPP_STACKTRACES=1
+export NCCL_DEBUG=INFO
 export WANDB_PROJECT="${WANDB_PROJECT:-Mobile-O}"
 export WANDB_RUN_GROUP="${WANDB_RUN_GROUP:-stage12-4gpu}"
 export CUDA_VISIBLE_DEVICES=0,1,2,3
@@ -54,6 +57,7 @@ else
   echo "Unknown size: $SIZE"
   exit 1
 fi
+
 
 
 

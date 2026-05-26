@@ -20,6 +20,9 @@ mkdir -p "$LOG_ROOT" "$CKPT_ROOT"
 
 export OMP_NUM_THREADS=8
 export TOKENIZERS_PARALLELISM=false
+export TORCH_DISTRIBUTED_DEBUG=DETAIL
+export TORCH_SHOW_CPP_STACKTRACES=1
+export NCCL_DEBUG=INFO
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 export WANDB_API_KEY="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"
 export WANDB_PROJECT="Mobile-O"
@@ -34,7 +37,7 @@ if [ ! -d "$OUTPUT_FOLDER/llava-fastvithd_0.5b_stage3" ]; then
     rm $OUTPUT_FOLDER/llava-fastvithd_0.5b_stage3.zip
 fi
 
-srun torchrun --nnodes=1 --nproc_per_node=4 "$REPO_ROOT/mobileo/train/train_mem.py" \
+srun torchrun --nnodes=1 --nproc_per_node=4 --log-dir "$LOG_ROOT/torchrun-${SLURM_JOB_ID}" --redirects 3 --tee 3 "$REPO_ROOT/mobileo/train/train_mem.py" \
     --deepspeed ./deepspeed_scripts/zero3.json \
     --is_train True \
     --diffusion_name_or_path Efficient-Large-Model/Sana_600M_512px_diffusers \
@@ -74,6 +77,7 @@ srun torchrun --nnodes=1 --nproc_per_node=4 "$REPO_ROOT/mobileo/train/train_mem.
     --report_to wandb \
     --seed 42 \
     --run_name $RUN_NAME 2>&1 | tee $LOG_ROOT/$RUN_NAME.txt
+
 
 
 
