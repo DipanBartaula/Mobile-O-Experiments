@@ -6,8 +6,8 @@
 #SBATCH --cpus-per-task=32
 #SBATCH --mem=256G
 #SBATCH --time=72:00:00
-#SBATCH --output=logs/slurm-%x-%j.out
-#SBATCH --error=logs/slurm-%x-%j.err
+#SBATCH --output=/iopsstor/scratch/cscs/dbartaula/Mobile-O-runs/logs/slurm-%x-%j.out
+#SBATCH --error=/iopsstor/scratch/cscs/dbartaula/Mobile-O-runs/logs/slurm-%x-%j.err
 
 set -euo pipefail
 
@@ -50,6 +50,10 @@ else
   echo "Unknown size: $SIZE"
   exit 1
 fi
+
+
+
+
 
 
 

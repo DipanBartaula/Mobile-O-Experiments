@@ -6,14 +6,17 @@
 #SBATCH --cpus-per-task=32
 #SBATCH --mem=256G
 #SBATCH --time=12:00:00
-#SBATCH --output=logs/slurm-%x-%j.out
-#SBATCH --error=logs/slurm-%x-%j.err
+#SBATCH --output=/iopsstor/scratch/cscs/dbartaula/Mobile-O-runs/logs/slurm-%x-%j.out
+#SBATCH --error=/iopsstor/scratch/cscs/dbartaula/Mobile-O-runs/logs/slurm-%x-%j.err
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$REPO_ROOT"
-mkdir -p logs checkpoints
+RUN_ROOT="${RUN_ROOT:-/iopsstor/scratch/cscs/dbartaula/Mobile-O-runs}"
+LOG_ROOT="$RUN_ROOT/logs"
+CKPT_ROOT="$RUN_ROOT/checkpoints"
+mkdir -p "$LOG_ROOT" "$CKPT_ROOT"
 
 export OMP_NUM_THREADS=8
 export TOKENIZERS_PARALLELISM=false
@@ -23,7 +26,7 @@ export WANDB_PROJECT="Mobile-O"
 export WANDB_ENTITY="078bct-anandi-tribhuvan-university-institute-of-engineering"
 
 RUN_NAME=Mobile-O-0.5B-Pretrain-mem
-OUTPUT_FOLDER=checkpoints
+OUTPUT_FOLDER="$CKPT_ROOT"
 
 if [ ! -d "$OUTPUT_FOLDER/llava-fastvithd_0.5b_stage3" ]; then
     wget -nc https://ml-site.cdn-apple.com/datasets/fastvlm/llava-fastvithd_0.5b_stage3.zip -O $OUTPUT_FOLDER/llava-fastvithd_0.5b_stage3.zip
@@ -46,7 +49,7 @@ srun torchrun --nnodes=1 --nproc_per_node=4 mobileo/train/train_mem.py \
     --freeze_backbone True \
     --fp16 True \
     --bf16 False \
-    --output_dir checkpoints/$RUN_NAME \
+    --output_dir $CKPT_ROOT/$RUN_NAME \
     --num_train_epochs 5 \
     --per_device_train_batch_size 64 \
     --per_device_eval_batch_size 4 \
@@ -70,7 +73,11 @@ srun torchrun --nnodes=1 --nproc_per_node=4 mobileo/train/train_mem.py \
     --lazy_preprocess True \
     --report_to wandb \
     --seed 42 \
-    --run_name $RUN_NAME 2>&1 | tee logs/$RUN_NAME.txt
+    --run_name $RUN_NAME 2>&1 | tee $LOG_ROOT/$RUN_NAME.txt
+
+
+
+
 
 
 
