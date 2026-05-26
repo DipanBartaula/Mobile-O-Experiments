@@ -30,6 +30,26 @@ export PYTHONNOUSERSITE=1
 
 eval "$(conda shell.bash hook)"
 conda activate mobileo2
+# CUDA_HOME setup for DeepSpeed op compatibility checks
+if [ -z "${CUDA_HOME:-}" ]; then
+  CUDA_HOME_DETECTED=$(python - <<'PY'
+from torch.utils.cpp_extension import CUDA_HOME
+print(CUDA_HOME or "")
+PY
+)
+  if [ -n "$CUDA_HOME_DETECTED" ] && [ -d "$CUDA_HOME_DETECTED" ]; then
+    export CUDA_HOME="$CUDA_HOME_DETECTED"
+  elif command -v nvcc >/dev/null 2>&1; then
+    export CUDA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v nvcc)")")")"
+  elif [ -d "/usr/local/cuda" ]; then
+    export CUDA_HOME="/usr/local/cuda"
+  else
+    echo "CUDA_HOME not found. Load CUDA toolkit module or set CUDA_HOME before sbatch."; exit 1
+  fi
+fi
+export PATH="$CUDA_HOME/bin:$PATH"
+export LD_LIBRARY_PATH="$CUDA_HOME/lib64:${LD_LIBRARY_PATH:-}"
+echo "CUDA_HOME=$CUDA_HOME"
 
 # Runtime diagnostics
 which python
@@ -86,6 +106,8 @@ PYTHONNOUSERSITE=1 srun torchrun --nnodes=1 --nproc_per_node=4 --log-dir "$LOG_R
     --lazy_preprocess True \
     --report_to wandb \
     --run_name $RUN_NAME 2>&1 | tee $LOG_ROOT/$RUN_NAME.txt
+
+
 
 
 
