@@ -27,7 +27,7 @@ export WANDB_ENTITY="078bct-anandi-tribhuvan-university-institute-of-engineering
 
 RUN_NAME=Mobile-O-0.5B-Post-Train-mem
 
-srun torchrun --nnodes=1 --nproc_per_node=4 mobileo/train/train_mem.py \
+srun torchrun --nnodes=1 --nproc_per_node=4 "$REPO_ROOT/mobileo/train/train_mem.py" \
     --deepspeed ./deepspeed_scripts/zero1.json \
     --is_train True \
     --diffusion_name_or_path Efficient-Large-Model/Sana_600M_512px_diffusers \
@@ -68,6 +68,7 @@ srun torchrun --nnodes=1 --nproc_per_node=4 mobileo/train/train_mem.py \
     --lazy_preprocess True \
     --report_to wandb \
     --run_name $RUN_NAME 2>&1 | tee $LOG_ROOT/$RUN_NAME.txt
+
 
 
 

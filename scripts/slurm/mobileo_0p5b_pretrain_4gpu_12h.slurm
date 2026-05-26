@@ -37,7 +37,7 @@ if [ ! -d "$OUTPUT_FOLDER/llava-fastvithd_0.5b_stage3" ]; then
     rm $OUTPUT_FOLDER/llava-fastvithd_0.5b_stage3.zip
 fi
 
-srun torchrun --nnodes=1 --nproc_per_node=4 mobileo/train/train.py \
+srun torchrun --nnodes=1 --nproc_per_node=4 "$REPO_ROOT/mobileo/train/train.py" \
     --deepspeed ./deepspeed_scripts/zero3.json \
     --diffusion_name_or_path Efficient-Large-Model/Sana_600M_512px_diffusers \
     --vlm_num_layers 4 \
@@ -79,6 +79,7 @@ srun torchrun --nnodes=1 --nproc_per_node=4 mobileo/train/train.py \
     --report_to wandb \
     --seed 42 \
     --run_name $RUN_NAME 2>&1 | tee $LOG_ROOT/$RUN_NAME.txt
+
 
 
 

@@ -30,7 +30,7 @@ export WANDB_ENTITY="078bct-anandi-tribhuvan-university-institute-of-engineering
 
 RUN_NAME=Mobile-O-0.5B-SFT
 
-srun torchrun --nnodes=1 --nproc_per_node=4 mobileo/train/train.py \
+srun torchrun --nnodes=1 --nproc_per_node=4 "$REPO_ROOT/mobileo/train/train.py" \
     --deepspeed ./deepspeed_scripts/zero1.json \
     --diffusion_name_or_path Efficient-Large-Model/Sana_600M_512px_diffusers \
     --vlm_num_layers 4 \
@@ -70,6 +70,7 @@ srun torchrun --nnodes=1 --nproc_per_node=4 mobileo/train/train.py \
     --report_to wandb \
     --seed 42 \
     --run_name $RUN_NAME 2>&1 | tee $LOG_ROOT/$RUN_NAME.txt
+
 
 
 

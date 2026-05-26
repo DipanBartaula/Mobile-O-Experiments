@@ -20,7 +20,11 @@ set -euo pipefail
 STAGE="${1:-pretrain}"   # pretrain|sft
 SIZE="${2:-1.5B}"        # 1.5B|0.5B
 
-mkdir -p logs
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+cd "$REPO_ROOT"
+RUN_ROOT="${RUN_ROOT:-/iopsstor/scratch/cscs/dbartaula/Mobile-O-runs}"
+mkdir -p "$RUN_ROOT/logs" "$RUN_ROOT/checkpoints"
 
 export OMP_NUM_THREADS=8
 export TOKENIZERS_PARALLELISM=false
@@ -30,18 +34,18 @@ export CUDA_VISIBLE_DEVICES=0,1,2,3
 
 if [[ "$SIZE" == "1.5B" ]]; then
   if [[ "$STAGE" == "pretrain" ]]; then
-    srun bash scripts/Mobile-O-1.5B/pre_train.sh
+    srun bash "$REPO_ROOT/scripts/Mobile-O-1.5B/pre_train.sh"
   elif [[ "$STAGE" == "sft" ]]; then
-    srun bash scripts/Mobile-O-1.5B/sft.sh
+    srun bash "$REPO_ROOT/scripts/Mobile-O-1.5B/sft.sh"
   else
     echo "Unknown stage: $STAGE"
     exit 1
   fi
 elif [[ "$SIZE" == "0.5B" ]]; then
   if [[ "$STAGE" == "pretrain" ]]; then
-    srun bash scripts/Mobile-O-0.5B/pre_train.sh
+    srun bash "$REPO_ROOT/scripts/Mobile-O-0.5B/pre_train.sh"
   elif [[ "$STAGE" == "sft" ]]; then
-    srun bash scripts/Mobile-O-0.5B/sft.sh
+    srun bash "$REPO_ROOT/scripts/Mobile-O-0.5B/sft.sh"
   else
     echo "Unknown stage: $STAGE"
     exit 1
@@ -50,6 +54,7 @@ else
   echo "Unknown size: $SIZE"
   exit 1
 fi
+
 
 
 
