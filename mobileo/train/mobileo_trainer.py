@@ -150,6 +150,11 @@ class LengthGroupedSampler(Sampler):
 
 
 class mobileoTrainer(Trainer):
+    def __init__(self, *args, **kwargs):
+        # transformers>=4.46 removed `tokenizer` from Trainer.__init__ in favor of `processing_class`.
+        if "tokenizer" in kwargs and "processing_class" not in kwargs:
+            kwargs["processing_class"] = kwargs.pop("tokenizer")
+        super().__init__(*args, **kwargs)
 
     def _get_train_sampler(self) -> Optional[torch.utils.data.Sampler]:
         if self.train_dataset is None or not has_length(self.train_dataset):

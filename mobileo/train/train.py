@@ -1036,7 +1036,7 @@ def train(attn_implementation=None):
 
     trainer = mobileoTrainer(
         model=model,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
         args=training_args,
 		callbacks=[
             MobileConditioningCallback(total_epochs=int(training_args.num_train_epochs)),

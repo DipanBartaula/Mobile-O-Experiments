@@ -856,7 +856,7 @@ def train(attn_implementation=None):
 
     trainer = mobileoTrainer(
         model=model,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
         args=training_args,
         callbacks=[
             WandbTextLoggerCallback(tokenizer=tokenizer, every_n_steps=250),
