@@ -10,7 +10,9 @@
 #SBATCH --error=logs/slurm-%x-%j.err
 
 set -euo pipefail
-cd "${SLURM_SUBMIT_DIR:-$PWD}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+cd "$REPO_ROOT"
 mkdir -p logs checkpoints
 
 export OMP_NUM_THREADS=8
@@ -69,3 +71,6 @@ srun torchrun --nnodes=1 --nproc_per_node=4 mobileo/train/train_mem.py \
     --report_to wandb \
     --seed 42 \
     --run_name $RUN_NAME 2>&1 | tee logs/$RUN_NAME.txt
+
+
+

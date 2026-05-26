@@ -288,6 +288,13 @@ def rank0_print(*args):
         print(*args)
 
 
+def log_checkpoint_source(tag: str, path: str):
+    resolved = os.path.expanduser(path) if path else "None"
+    exists = os.path.exists(resolved) if path else False
+    rank0_print(f"[checkpoint-load] {tag}: model_name_or_path={path}")
+    rank0_print(f"[checkpoint-load] {tag}: resolved_path={resolved} exists={exists}")
+
+
 from packaging import version
 
 
@@ -928,6 +935,7 @@ def train(attn_implementation=None):
             )
         )
         
+    log_checkpoint_source("train.py:model", model_args.model_name_or_path)
     model = mobileoFastSFTForCausalLM.from_pretrained(
         model_args.model_name_or_path,
         cache_dir=training_args.cache_dir,
@@ -950,6 +958,7 @@ def train(attn_implementation=None):
 
             model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
     
+    log_checkpoint_source("train.py:processor", model_args.model_name_or_path)
     try:
         tokenizer = AutoProcessor.from_pretrained(model_args.model_name_or_path).tokenizer
     except Exception as e:

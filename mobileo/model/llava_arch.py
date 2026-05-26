@@ -46,21 +46,26 @@ class LlavaMetaModel:
         print(config)
         print("=" * 50)
         if hasattr(config, "mm_vision_tower"):
+            print(f"[checkpoint-load] vision_tower: source={getattr(config, 'mm_vision_tower', getattr(config, 'vision_tower', None))}")
             self.vision_tower = build_vision_tower(config, delay_load=True)
             self.mm_projector = build_vision_projector(config)
         if hasattr(config, "diffusion_name_or_path"):
+            print(f"[checkpoint-load] diffusion_name_or_path={config.diffusion_name_or_path}")
             self.dit = build_sana(config)
             self.vae = build_vae(config)
             self.diffusion_connector = MobileConditioningProjector(input_dim=config.hidden_size, hidden_dim=512, output_dim=2304, num_layers=config.vlm_num_layers)
             if hasattr(config, "is_train"):
                 if config.is_train:
                     print("FlowMatchEulerDiscreteScheduler is used")
+                    print(f"[checkpoint-load] scheduler: FlowMatchEulerDiscreteScheduler from {config.diffusion_name_or_path} (subfolder=scheduler)")
                     self.noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.diffusion_name_or_path, subfolder="scheduler")
                 else:
                     print("DPMSolverMultistepScheduler is used")
+                    print(f"[checkpoint-load] scheduler: DPMSolverMultistepScheduler from {config.diffusion_name_or_path} (subfolder=scheduler)")
                     self.noise_scheduler = DPMSolverMultistepScheduler.from_pretrained(config.diffusion_name_or_path, subfolder="scheduler")
             else:
                 print("FlowMatchEulerDiscreteScheduler is used")
+                print(f"[checkpoint-load] scheduler: FlowMatchEulerDiscreteScheduler from {config.diffusion_name_or_path} (subfolder=scheduler)")
                 self.noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.diffusion_name_or_path, subfolder="scheduler")
             
         
@@ -94,13 +99,16 @@ class LlavaMetaModel:
         
 
         if self.get_sana() is None:
+            print(f"[checkpoint-load] dit(init): diffusion_name_or_path={model_args.diffusion_name_or_path}")
             dit = build_sana(model_args)
             if hasattr(model_args, "is_train"):
                 if model_args.is_train:
                     print("FlowMatchEulerDiscreteScheduler is used")
+                    print(f"[checkpoint-load] scheduler: FlowMatchEulerDiscreteScheduler from {model_args.diffusion_name_or_path} (subfolder=scheduler)")
                     self.noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(model_args.diffusion_name_or_path, subfolder="scheduler")
                 else:
                     print("DPMSolverMultistepScheduler is used")
+                    print(f"[checkpoint-load] scheduler: DPMSolverMultistepScheduler from {model_args.diffusion_name_or_path} (subfolder=scheduler)")
                     self.noise_scheduler = DPMSolverMultistepScheduler.from_pretrained(model_args.diffusion_name_or_path, subfolder="scheduler")
 
             if fsdp is not None and len(fsdp) > 0:
@@ -116,6 +124,7 @@ class LlavaMetaModel:
             p.requires_grad = False
                 
         if self.get_sana_vae() is None:
+            print(f"[checkpoint-load] vae(init): diffusion_name_or_path={model_args.diffusion_name_or_path}")
             vae = build_vae(model_args)
 
             if fsdp is not None and len(fsdp) > 0:
@@ -133,6 +142,7 @@ class LlavaMetaModel:
 
         if self.get_vision_tower() is None:
             print("=" * 20, "Building vision tower", "=" * 20)
+            print(f"[checkpoint-load] vision_tower(init): source={getattr(model_args, 'mm_vision_tower', getattr(model_args, 'vision_tower', None))}")
             vision_tower = build_vision_tower(model_args)
             
 
@@ -145,6 +155,7 @@ class LlavaMetaModel:
                 vision_tower = self.vision_tower[0]
             else:
                 vision_tower = self.vision_tower
+            print(f"[checkpoint-load] vision_tower(load_model): source={getattr(model_args, 'mm_vision_tower', getattr(model_args, 'vision_tower', None))}")
             vision_tower.load_model()
         
         

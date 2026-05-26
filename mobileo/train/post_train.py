@@ -39,6 +39,13 @@ def rank0_print(*args):
         print(*args)
 
 
+def log_checkpoint_source(tag: str, path: str):
+    resolved = os.path.expanduser(path) if path else "None"
+    exists = os.path.exists(resolved) if path else False
+    rank0_print(f"[checkpoint-load] {tag}: model_name_or_path={path}")
+    rank0_print(f"[checkpoint-load] {tag}: resolved_path={resolved} exists={exists}")
+
+
 class WandbTrainStatsCallback(TrainerCallback):
     """Logs per-step derived train stats (EMA/variance) to W&B."""
 
@@ -703,6 +710,7 @@ def train(attn_implementation=None):
             )
         )
 
+    log_checkpoint_source("post_train.py:model", model_args.model_name_or_path)
     model = mobileoFastForCausalLM.from_pretrained(
         model_args.model_name_or_path,
         cache_dir=training_args.cache_dir,
@@ -786,6 +794,7 @@ def train(attn_implementation=None):
 
             model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
 
+    log_checkpoint_source("post_train.py:tokenizer", model_args.model_name_or_path)
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         model_args.model_name_or_path,
         cache_dir=training_args.cache_dir,
@@ -923,12 +932,14 @@ def load_lora_model(model_args, training_args):
                 ),
             )
         )
+    log_checkpoint_source("post_train.py:base_model", model_args.model_name_or_path)
     base_model = mobileoFastForCausalLM.from_pretrained(
         model_args.model_name_or_path,
         cache_dir=training_args.cache_dir,
         torch_dtype=(torch.bfloat16 if training_args.bf16 else None),
         **bnb_model_from_pretrained_args,
     )
+    rank0_print(f"[checkpoint-load] post_train.py:lora_adapter_path={model_args.lora_adapter_path}")
     model = PeftModel.from_pretrained(
         base_model,
         model_args.lora_adapter_path,
