@@ -39,7 +39,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nnodes=1 --nproc_per_node=4 mobileo/trai
     --weight_decay 0.01 \
     --warmup_ratio 0.02 \
     --lr_scheduler_type cosine_with_min_lr \
-    --lr_scheduler_kwargs '{"min_lr": 2e-6}' \
+    --min_lr 2e-6 \
     --max_grad_norm 0.5 \
     --adam_beta2 0.95 \
     --model_max_length 512 \
@@ -51,3 +51,4 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nnodes=1 --nproc_per_node=4 mobileo/trai
     --report_to wandb \
     --seed 42 \
     --run_name $RUN_NAME 2>&1 | tee logs/$RUN_NAME.txt
+
