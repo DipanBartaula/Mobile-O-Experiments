@@ -59,3 +59,5 @@ python -c "import sys,diffusers,transformers,torch; print('python=',sys.executab
 python -c "from diffusers.models.unets.unet_2d_condition import UNet2DConditionModel; print('UNet2DConditionModel import OK')"
 
 echo "==== Done ===="
+
+

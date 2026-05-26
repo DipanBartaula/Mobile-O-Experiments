@@ -17,6 +17,7 @@ RUN_ROOT="${RUN_ROOT:-/iopsstor/scratch/cscs/dbartaula/Mobile-O-runs}"
 LOG_ROOT="$RUN_ROOT/logs"
 CKPT_ROOT="$RUN_ROOT/checkpoints"
 mkdir -p "$LOG_ROOT" "$CKPT_ROOT"
+DATA_ROOT="/iopsstor/scratch/cscs/dbartaula/Mobile-O-Datasets"
 
 export OMP_NUM_THREADS=8
 export TOKENIZERS_PARALLELISM=false
@@ -62,7 +63,7 @@ PYTHONNOUSERSITE=1 srun torchrun --nnodes=1 --nproc_per_node=4 --log-dir "$LOG_R
     --model_name_or_path $CKPT_ROOT/Mobile-O-0.5B-SFT \
     --version qwen_v2 \
     --data_type mix \
-    --image_folder data/Mobile-O-Post-Train \
+    --image_folder $DATA_ROOT/Mobile-O-Post-Train \
     --mm_projector_type mlp2x_gelu \
     --mm_vision_select_layer -2 \
     --mm_use_im_start_end False \
@@ -96,6 +97,8 @@ PYTHONNOUSERSITE=1 srun torchrun --nnodes=1 --nproc_per_node=4 --log-dir "$LOG_R
     --lazy_preprocess True \
     --report_to wandb \
     --run_name $RUN_NAME 2>&1 | tee $LOG_ROOT/$RUN_NAME.txt
+
+
 
 
 
