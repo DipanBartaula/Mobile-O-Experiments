@@ -23,13 +23,25 @@ export TORCH_DISTRIBUTED_DEBUG=DETAIL
 export TORCH_SHOW_CPP_STACKTRACES=1
 export NCCL_DEBUG=INFO
 export CUDA_VISIBLE_DEVICES=0,1,2,3
+export PYTHONNOUSERSITE=1
+
+# Activate conda environment explicitly
+source /iopsstor/scratch/cscs/dbartaula/miniforge3/etc/profile.d/conda.sh
+conda activate mobileo2
+
+# Runtime diagnostics
+which python
+python -V
+python -c "import sys; print(sys.executable)"
+PYTHONNOUSERSITE=1 python -c "import sys,diffusers,transformers; print('python=',sys.executable); print('diffusers=',diffusers.__version__); print('transformers=',transformers.__version__)"
+PYTHONNOUSERSITE=1 python -c "from diffusers.models.unets.unet_2d_condition import UNet2DConditionModel; print('UNet2DConditionModel import OK')"
 export WANDB_API_KEY="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"
 export WANDB_PROJECT="Mobile-O"
 export WANDB_ENTITY="078bct-anandi-tribhuvan-university-institute-of-engineering"
 
 RUN_NAME=Mobile-O-0.5B-Post-Train-xformers
 
-srun torchrun --nnodes=1 --nproc_per_node=4 --log-dir "$LOG_ROOT/torchrun-${SLURM_JOB_ID}" --redirects 3 --tee 3 "$REPO_ROOT/mobileo/train/train_xformers.py" \
+PYTHONNOUSERSITE=1 srun torchrun --nnodes=1 --nproc_per_node=4 --log-dir "$LOG_ROOT/torchrun-${SLURM_JOB_ID}" --redirects 3 --tee 3 "$REPO_ROOT/mobileo/train/train_xformers.py" \
     --deepspeed ./deepspeed_scripts/zero1.json \
     --is_train True \
     --diffusion_name_or_path Efficient-Large-Model/Sana_600M_512px_diffusers \
@@ -67,6 +79,10 @@ srun torchrun --nnodes=1 --nproc_per_node=4 --log-dir "$LOG_ROOT/torchrun-${SLUR
     --lazy_preprocess True \
     --report_to wandb \
     --run_name $RUN_NAME 2>&1 | tee $LOG_ROOT/$RUN_NAME.txt
+
+
+
+
 
 
 

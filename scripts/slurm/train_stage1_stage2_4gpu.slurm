@@ -33,6 +33,18 @@ export NCCL_DEBUG=INFO
 export WANDB_PROJECT="${WANDB_PROJECT:-Mobile-O}"
 export WANDB_RUN_GROUP="${WANDB_RUN_GROUP:-stage12-4gpu}"
 export CUDA_VISIBLE_DEVICES=0,1,2,3
+export PYTHONNOUSERSITE=1
+
+# Activate conda environment explicitly
+source /iopsstor/scratch/cscs/dbartaula/miniforge3/etc/profile.d/conda.sh
+conda activate mobileo2
+
+# Runtime diagnostics
+which python
+python -V
+python -c "import sys; print(sys.executable)"
+PYTHONNOUSERSITE=1 python -c "import sys,diffusers,transformers; print('python=',sys.executable); print('diffusers=',diffusers.__version__); print('transformers=',transformers.__version__)"
+PYTHONNOUSERSITE=1 python -c "from diffusers.models.unets.unet_2d_condition import UNet2DConditionModel; print('UNet2DConditionModel import OK')"
 
 if [[ "$SIZE" == "1.5B" ]]; then
   if [[ "$STAGE" == "pretrain" ]]; then
@@ -56,6 +68,10 @@ else
   echo "Unknown size: $SIZE"
   exit 1
 fi
+
+
+
+
 
 
 
