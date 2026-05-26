@@ -21,6 +21,7 @@ from mobileo.train.mobileo_post_trainer import mobileoTrainer
 from mobileo import conversation as conversation_lib
 from mobileo.model import mobileoFastForCausalLM
 from mobileo.mm_utils import tokenizer_image_token
+from transformers import TrainerCallback
 import warnings
 warnings.filterwarnings("ignore", message="Plan failed with a CuDNNError")
 warnings.filterwarnings("ignore", message=".*copying from a non-meta parameter.*")
@@ -36,6 +37,93 @@ local_rank = None
 def rank0_print(*args):
     if local_rank == 0:
         print(*args)
+
+
+class WandbTrainStatsCallback(TrainerCallback):
+    """Logs per-step derived train stats (EMA/variance) to W&B."""
+
+    def __init__(self, ema_alpha=0.1, var_window=100):
+        self.ema_alpha = ema_alpha
+        self.var_window = var_window
+        self.loss_ema = None
+        self.recent_losses = []
+
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        if not state.is_world_process_zero or not logs:
+            return
+        if "loss" not in logs:
+            return
+
+        try:
+            import wandb
+        except Exception:
+            return
+        if wandb.run is None:
+            return
+
+        loss = float(logs["loss"])
+        self.loss_ema = loss if self.loss_ema is None else (self.ema_alpha * loss + (1 - self.ema_alpha) * self.loss_ema)
+        self.recent_losses.append(loss)
+        if len(self.recent_losses) > self.var_window:
+            self.recent_losses.pop(0)
+        loss_var = float(np.var(self.recent_losses)) if len(self.recent_losses) > 1 else 0.0
+
+        payload = {
+            "train/loss_ema": self.loss_ema,
+            "train/loss_variance": loss_var,
+        }
+        if "grad_norm" in logs:
+            payload["train/grad_norm"] = float(logs["grad_norm"])
+        if "learning_rate" in logs:
+            payload["train/learning_rate"] = float(logs["learning_rate"])
+        wandb.log(payload, step=state.global_step)
+
+
+class WandbTextLoggerCallback(TrainerCallback):
+    """Logs a generated text sample every N optimizer steps."""
+
+    def __init__(self, tokenizer, every_n_steps=250, prompt="Describe a realistic mountain landscape in one paragraph."):
+        self.tokenizer = tokenizer
+        self.every_n_steps = every_n_steps
+        self.prompt = prompt
+
+    def on_step_end(self, args, state, control, model=None, **kwargs):
+        if not state.is_world_process_zero:
+            return
+        if state.global_step == 0 or state.global_step % self.every_n_steps != 0:
+            return
+        if model is None:
+            return
+
+        try:
+            import wandb
+        except Exception:
+            return
+        if wandb.run is None:
+            return
+
+        actual_model = model.module if hasattr(model, "module") else model
+        was_training = actual_model.training
+        try:
+            actual_model.eval()
+            with torch.no_grad():
+                device = next(actual_model.parameters()).device
+                inputs = self.tokenizer(self.prompt, return_tensors="pt")
+                input_ids = inputs["input_ids"].to(device)
+                attention_mask = inputs["attention_mask"].to(device)
+                gen_ids = actual_model.generate(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    max_new_tokens=96,
+                    do_sample=False,
+                )
+                text = self.tokenizer.decode(gen_ids[0], skip_special_tokens=True)
+                wandb.log({"train/sample_text": text}, step=state.global_step)
+        except Exception as e:
+            print(f"[WandbTextLoggerCallback] failed at step {state.global_step}: {e}")
+        finally:
+            if was_training:
+                actual_model.train()
 
 @dataclass
 class ModelArguments:
@@ -761,6 +849,10 @@ def train(attn_implementation=None):
         model=model,
         tokenizer=tokenizer,
         args=training_args,
+        callbacks=[
+            WandbTextLoggerCallback(tokenizer=tokenizer, every_n_steps=250),
+            WandbTrainStatsCallback(ema_alpha=0.1, var_window=100),
+        ],
         **data_module,
     )
     from tabulate import tabulate

@@ -1,15 +1,38 @@
-RUN_NAME=Mobile-O-0.5B-Pretrain
-OUTPUT_FOLDER=checkpoints
+#!/bin/bash
+#SBATCH --job-name=mobileo-05b-pretrain
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --gres=gpu:4
+#SBATCH --cpus-per-task=32
+#SBATCH --mem=0
+#SBATCH --time=12:00:00
+#SBATCH --output=logs/slurm-%x-%j.out
+#SBATCH --error=logs/slurm-%x-%j.err
+
+set -euo pipefail
+
+cd "${SLURM_SUBMIT_DIR:-$PWD}"
+mkdir -p logs checkpoints
+
+export OMP_NUM_THREADS=8
+export TOKENIZERS_PARALLELISM=false
+export CUDA_VISIBLE_DEVICES=0,1,2,3
+
+# W&B
 export WANDB_API_KEY="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"
 export WANDB_PROJECT="Mobile-O"
 export WANDB_ENTITY="078bct-anandi-tribhuvan-university-institute-of-engineering"
+
+RUN_NAME=Mobile-O-0.5B-Pretrain
+OUTPUT_FOLDER=checkpoints
+
 if [ ! -d "$OUTPUT_FOLDER/llava-fastvithd_0.5b_stage3" ]; then
-    mkdir -p $OUTPUT_FOLDER
     wget -nc https://ml-site.cdn-apple.com/datasets/fastvlm/llava-fastvithd_0.5b_stage3.zip -O $OUTPUT_FOLDER/llava-fastvithd_0.5b_stage3.zip
-    unzip -o $OUTPUT_FOLDER/llava-fastvithd_0.5b_stage3.zip -d $OUTPUT_FOLDER/  
+    unzip -o $OUTPUT_FOLDER/llava-fastvithd_0.5b_stage3.zip -d $OUTPUT_FOLDER/
     rm $OUTPUT_FOLDER/llava-fastvithd_0.5b_stage3.zip
 fi
-CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nnodes=1 --nproc_per_node=4 mobileo/train/train.py \
+
+srun torchrun --nnodes=1 --nproc_per_node=4 mobileo/train/train.py \
     --deepspeed ./deepspeed_scripts/zero3.json \
     --diffusion_name_or_path Efficient-Large-Model/Sana_600M_512px_diffusers \
     --vlm_num_layers 4 \

@@ -1,5 +1,8 @@
 RUN_NAME=Mobile-O-1.5B-Pretrain
 OUTPUT_FOLDER=checkpoints
+export WANDB_API_KEY="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"
+export WANDB_PROJECT="Mobile-O"
+export WANDB_ENTITY="078bct-anandi-tribhuvan-university-institute-of-engineering"
 if [ ! -d "$OUTPUT_FOLDER/llava-fastvithd_1.5b_stage3" ]; then
     mkdir -p $OUTPUT_FOLDER
     wget -nc https://ml-site.cdn-apple.com/datasets/fastvlm/llava-fastvithd_1.5b_stage3.zip -O $OUTPUT_FOLDER/llava-fastvithd_1.5b_stage3.zip
@@ -20,8 +23,8 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nnodes=1 --nproc_per_node=4 mobileo/trai
     --mm_use_im_start_end False \
     --mm_use_im_patch_token False \
     --freeze_backbone True \
-    --fp16 False \
-    --bf16 True \
+    --fp16 True \
+    --bf16 False \
     --output_dir $OUTPUT_FOLDER/$RUN_NAME \
     --aspect_ratio_size 512 512 \
     --num_train_epochs 5 \
@@ -40,10 +43,10 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nnodes=1 --nproc_per_node=4 mobileo/trai
     --max_grad_norm 0.5 \
     --adam_beta2 0.95 \
     --model_max_length 512 \
-    --logging_steps 10 \
+    --logging_steps 1 \
     --tf32 True \
     --gradient_checkpointing True \
-    --dataloader_num_workers 8 \
+    --dataloader_num_workers 16 \
     --lazy_preprocess True \
     --report_to wandb \
     --seed 42 \

@@ -1,4 +1,7 @@
 RUN_NAME=Mobile-O-0.5B-SFT
+export WANDB_API_KEY="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"
+export WANDB_PROJECT="Mobile-O"
+export WANDB_ENTITY="078bct-anandi-tribhuvan-university-institute-of-engineering"
 PORT=$(python - <<'PY'
 import socket as s
 sock=s.socket(); sock.bind(('',0))
@@ -21,8 +24,8 @@ torchrun --nnodes=1 --nproc_per_node=4 --master_port $PORT \
     --mm_use_im_start_end False \
     --mm_use_im_patch_token False \
     --freeze_backbone True \
-    --fp16 False \
-    --bf16 True \
+    --fp16 True \
+    --bf16 False \
     --is_train True \
     --output_dir checkpoints/$RUN_NAME \
     --aspect_ratio_size 512 512 \
@@ -43,7 +46,7 @@ torchrun --nnodes=1 --nproc_per_node=4 --master_port $PORT \
     --logging_steps 1 \
     --tf32 True \
     --gradient_checkpointing True \
-    --dataloader_num_workers 8 \
+    --dataloader_num_workers 16 \
     --lazy_preprocess True \
     --report_to wandb \
     --seed 42 \

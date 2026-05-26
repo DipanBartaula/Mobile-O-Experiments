@@ -243,6 +243,46 @@ class WandbImageLoggerCallback(TrainerCallback):
             if was_training:
                 actual_model.train()
 
+
+class WandbTrainStatsCallback(TrainerCallback):
+    """Logs per-step derived train stats (EMA/variance) to W&B."""
+
+    def __init__(self, ema_alpha=0.1, var_window=100):
+        self.ema_alpha = ema_alpha
+        self.var_window = var_window
+        self.loss_ema = None
+        self.recent_losses = []
+
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        if not state.is_world_process_zero or not logs:
+            return
+        if "loss" not in logs:
+            return
+
+        try:
+            import wandb
+        except Exception:
+            return
+        if wandb.run is None:
+            return
+
+        loss = float(logs["loss"])
+        self.loss_ema = loss if self.loss_ema is None else (self.ema_alpha * loss + (1 - self.ema_alpha) * self.loss_ema)
+        self.recent_losses.append(loss)
+        if len(self.recent_losses) > self.var_window:
+            self.recent_losses.pop(0)
+        loss_var = float(np.var(self.recent_losses)) if len(self.recent_losses) > 1 else 0.0
+
+        payload = {
+            "train/loss_ema": self.loss_ema,
+            "train/loss_variance": loss_var,
+        }
+        if "grad_norm" in logs:
+            payload["train/grad_norm"] = float(logs["grad_norm"])
+        if "learning_rate" in logs:
+            payload["train/learning_rate"] = float(logs["learning_rate"])
+        wandb.log(payload, step=state.global_step)
+
 def rank0_print(*args):
     if local_rank == 0:
         print(*args)
@@ -992,6 +1032,7 @@ def train(attn_implementation=None):
 		callbacks=[
             MobileConditioningCallback(total_epochs=int(training_args.num_train_epochs)),
             WandbImageLoggerCallback(tokenizer=tokenizer, every_n_steps=250),
+            WandbTrainStatsCallback(ema_alpha=0.1, var_window=100),
         ],
         **data_module,
     )
