@@ -20,8 +20,7 @@ set -euo pipefail
 STAGE="${1:-pretrain}"   # pretrain|sft
 SIZE="${2:-1.5B}"        # 1.5B|0.5B
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+REPO_ROOT="/iopsstor/scratch/cscs/dbartaula/Mobile-O-Experiments"
 cd "$REPO_ROOT"
 RUN_ROOT="${RUN_ROOT:-/iopsstor/scratch/cscs/dbartaula/Mobile-O-runs}"
 mkdir -p "$RUN_ROOT/logs" "$RUN_ROOT/checkpoints"
@@ -57,6 +56,7 @@ else
   echo "Unknown size: $SIZE"
   exit 1
 fi
+
 
 
 

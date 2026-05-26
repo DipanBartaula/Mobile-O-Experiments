@@ -10,8 +10,7 @@
 #SBATCH --error=/iopsstor/scratch/cscs/dbartaula/Mobile-O-runs/logs/slurm-%x-%j.err
 
 set -euo pipefail
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+REPO_ROOT="/iopsstor/scratch/cscs/dbartaula/Mobile-O-Experiments"
 cd "$REPO_ROOT"
 RUN_ROOT="${RUN_ROOT:-/iopsstor/scratch/cscs/dbartaula/Mobile-O-runs}"
 LOG_ROOT="$RUN_ROOT/logs"
@@ -68,6 +67,7 @@ srun torchrun --nnodes=1 --nproc_per_node=4 --log-dir "$LOG_ROOT/torchrun-${SLUR
     --lazy_preprocess True \
     --report_to wandb \
     --run_name $RUN_NAME 2>&1 | tee $LOG_ROOT/$RUN_NAME.txt
+
 
 
 
