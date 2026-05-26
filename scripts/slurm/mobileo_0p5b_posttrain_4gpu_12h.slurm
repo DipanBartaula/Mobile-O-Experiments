@@ -30,28 +30,17 @@ export PYTHONNOUSERSITE=1
 
 eval "$(conda shell.bash hook)"
 conda activate mobileo2
-# CUDA_HOME setup for DeepSpeed op compatibility checks
-module load cuda || true
-
-if [ -z "${CUDA_HOME:-}" ]; then
-  if command -v nvcc >/dev/null 2>&1; then
-    export CUDA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v nvcc)")")")"
-  elif [ -d "/usr/local/cuda" ]; then
-    export CUDA_HOME="/usr/local/cuda"
-  else
-    echo "CUDA toolkit not found (nvcc missing, CUDA_HOME unset)."
-    exit 1
-  fi
+# Optional CUDA toolkit diagnostics (no hard fail)
+if command -v nvcc >/dev/null 2>&1; then
+  export CUDA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v nvcc)")")")"
+  export PATH="$CUDA_HOME/bin:$PATH"
+  export LD_LIBRARY_PATH="$CUDA_HOME/lib64:${LD_LIBRARY_PATH:-}"
+  echo "CUDA_HOME=$CUDA_HOME"
+  nvcc --version
+else
+  echo "nvcc not found; continuing without CUDA toolkit (no DeepSpeed)."
 fi
-
-export PATH="$CUDA_HOME/bin:$PATH"
-export LD_LIBRARY_PATH="$CUDA_HOME/lib64:${LD_LIBRARY_PATH:-}"
-
-# Validation
 python -c "from torch.utils.cpp_extension import CUDA_HOME; print('torch CUDA_HOME=', CUDA_HOME)"
-which nvcc
-nvcc --version
-echo "CUDA_HOME=$CUDA_HOME"
 
 # Runtime diagnostics
 which python
@@ -68,7 +57,6 @@ export WANDB_ENTITY="078bct-anandi-tribhuvan-university-institute-of-engineering
 RUN_NAME=Mobile-O-0.5B-Post-Train
 
 PYTHONNOUSERSITE=1 srun torchrun --nnodes=1 --nproc_per_node=4 --log-dir "$LOG_ROOT/torchrun-${SLURM_JOB_ID}" --redirects 3 --tee 3 "$REPO_ROOT/mobileo/train/train_mem.py" \
-    --deepspeed ./deepspeed_scripts/zero1.json \
     --is_train True \
     --diffusion_name_or_path Efficient-Large-Model/Sana_600M_512px_diffusers \
     --model_name_or_path $CKPT_ROOT/Mobile-O-0.5B-SFT \

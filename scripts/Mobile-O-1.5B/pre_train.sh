@@ -10,7 +10,6 @@ if [ ! -d "$OUTPUT_FOLDER/llava-fastvithd_1.5b_stage3" ]; then
     rm $OUTPUT_FOLDER/llava-fastvithd_1.5b_stage3.zip
 fi
 CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nnodes=1 --nproc_per_node=4 mobileo/train/train.py \
-    --deepspeed ./deepspeed_scripts/zero3.json \
     --diffusion_name_or_path Efficient-Large-Model/Sana_1600M_512px_diffusers \
     --vlm_num_layers 4 \
     --is_train True \

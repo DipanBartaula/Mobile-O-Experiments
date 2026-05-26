@@ -12,7 +12,6 @@ CUDA_VISIBLE_DEVICES=0 CUDA_LAUNCH_BLOCKING=1 \
 MASTER_ADDR=127.0.0.1 MASTER_PORT=$PORT \
 torchrun --nnodes=1 --nproc_per_node=1 --master_port $PORT \
     mobileo/train/train_mem.py \
-    --deepspeed ./deepspeed_scripts/zero1.json \
     --is_train True \
     --diffusion_name_or_path Efficient-Large-Model/Sana_600M_512px_diffusers \
     --model_name_or_path checkpoints/Mobile-O-0.5B-SFT \
