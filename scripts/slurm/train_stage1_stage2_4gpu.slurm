@@ -35,14 +35,9 @@ export WANDB_RUN_GROUP="${WANDB_RUN_GROUP:-stage12-4gpu}"
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 export PYTHONNOUSERSITE=1
 
-# Conda activation (robust)
-if [ -f "/iopsstor/scratch/cscs/dbartaula/miniforge3/bin/conda" ]; then
-  eval "$(/iopsstor/scratch/cscs/dbartaula/miniforge3/bin/conda shell.bash hook)"
-elif command -v conda >/dev/null 2>&1; then
-  eval "$(conda shell.bash hook)"
-else
-  echo "conda not found"; exit 1
-fi
+# Conda activation
+
+eval "$(conda shell.bash hook)"
 conda activate mobileo2
 
 # Runtime diagnostics
@@ -74,6 +69,7 @@ else
   echo "Unknown size: $SIZE"
   exit 1
 fi
+
 
 
 
